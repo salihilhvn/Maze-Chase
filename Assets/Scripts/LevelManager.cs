@@ -1,6 +1,7 @@
 using UnityEngine;
-using TMPro; // Ekrana yazı yazdırmak için ekledik
-using System.Collections; // Bekletme süresi (Coroutine) için ekledik
+using UnityEngine.SceneManagement;
+using TMPro; 
+using System.Collections; 
 
 public class LevelManager : MonoBehaviour
 {
@@ -10,16 +11,12 @@ public class LevelManager : MonoBehaviour
     public int totalCollectibles = 0;
     public int collectedCount = 0;
 
-    [Header("Level System")]
-    public GameObject[] levelPrefabs; // Tüm level prefablerini buraya koyacağız
-    public Transform playerTransform; // Yeni level başlayınca oyuncuyu sıfırlamak için
-    public Vector3 playerSpawnPosition = Vector3.zero; // Oyuncunun başlangıç pozisyonu
-    private int currentLevelIndex = 0;
-    private GameObject currentLevelInstance;
-
     [Header("UI Elements (Arayüz)")]
-    public TextMeshProUGUI scoreText; // Sol üstte yazacak "Altın: 1/3" yazısı
-    public GameObject levelCompletePanel; // Kapıya gelince çıkacak "Tebrikler" ekranı
+    public TextMeshProUGUI scoreText; 
+    public GameObject levelCompletePanel; 
+    public GameObject levelFailedPanel; // YENI EKLENDI: Yakalanınca çıkacak ekran
+
+    private bool isGameOver = false; // Oyunun bittiğini takip etmek için
 
     private void Awake()
     {
@@ -31,69 +28,23 @@ public class LevelManager : MonoBehaviour
 
     private void Start()
     {
-        LoadLevel(currentLevelIndex);
-    }
-
-    public void LoadLevel(int levelIndex)
-    {
-        // 1. Varsa eski bölümü sil
-        if (currentLevelInstance != null)
-        {
-            Destroy(currentLevelInstance);
-        }
-
-        // 2. Altın sayaçlarını sıfırla
-        totalCollectibles = 0;
-        collectedCount = 0;
+        UpdateUI(); 
         
-        // UI'ı gizle ve yazıyı güncelle
-        if (levelCompletePanel != null)
-            levelCompletePanel.SetActive(false);
-        UpdateUI();
-
-        // 3. Yeni bölümü yarat (Eğer index dizinin dışına çıkmadıysa)
-        if (levelPrefabs != null && levelPrefabs.Length > 0)
-        {
-            if (levelIndex < levelPrefabs.Length)
-            {
-                currentLevelInstance = Instantiate(levelPrefabs[levelIndex]);
-            }
-            else
-            {
-                Debug.Log("Tüm bölümler bitti, başa dönülüyor!");
-                currentLevelIndex = 0; // Başa sar
-                currentLevelInstance = Instantiate(levelPrefabs[currentLevelIndex]);
-            }
-        }
-        else
-        {
-            Debug.LogWarning("LevelManager içinde hiç Prefab yok! Lütfen Editörden ekleyin.");
-        }
-
-        // 4. Oyuncuyu başlangıç noktasına ışınla
-        if (playerTransform != null)
-        {
-            playerTransform.position = playerSpawnPosition;
-            // Eğer oyuncunun bir Rigidbody'si varsa hareketlerini sıfırlamak iyi olabilir
-            Rigidbody rb = playerTransform.GetComponent<Rigidbody>();
-            if (rb != null)
-            {
-                rb.linearVelocity = Vector3.zero;
-                rb.angularVelocity = Vector3.zero;
-            }
-        }
+        if (levelCompletePanel != null) levelCompletePanel.SetActive(false); 
+        if (levelFailedPanel != null) levelFailedPanel.SetActive(false);
     }
 
     public void RegisterCollectible()
     {
         totalCollectibles++;
-        UpdateUI(); // Yeni altın bulundukça yazıyı güncelle
+        UpdateUI(); 
     }
 
     public void CollectItem()
     {
+        if (isGameOver) return; // Oyun bittiyse skor artmasın
         collectedCount++;
-        UpdateUI(); // Altın toplandıkça yazıyı güncelle
+        UpdateUI(); 
     }
 
     private void UpdateUI()
@@ -106,24 +57,47 @@ public class LevelManager : MonoBehaviour
 
     public void CheckLevelComplete()
     {
+        if (isGameOver) return;
+
         if (collectedCount >= totalCollectibles)
         {
-            // Paneli göster
-            if (levelCompletePanel != null)
-            {
-                levelCompletePanel.SetActive(true); 
-            }
-            
-            // Bölümü pat diye değil, 2 saniye bekleyip değiştir (Oyuncu yazıyı görsün)
+            isGameOver = true;
+            if (levelCompletePanel != null) levelCompletePanel.SetActive(true); 
             StartCoroutine(LoadNextLevelAfterDelay(2f));
         }
     }
 
+    // YENI EKLENDI: Düşman bizi yakaladığında bu fonksiyon çalışacak
+    public void LevelFailed()
+    {
+        if (isGameOver) return;
+
+        isGameOver = true;
+        Debug.Log("YAKALANDIN! BÖLÜM BAŞARISIZ.");
+        
+        if (levelFailedPanel != null) levelFailedPanel.SetActive(true); 
+        
+        // 2 saniye sonra aynı bölümü tekrar yükle
+        StartCoroutine(RestartLevelAfterDelay(2f));
+    }
+
     private IEnumerator LoadNextLevelAfterDelay(float delay)
     {
-        yield return new WaitForSeconds(delay); // delay saniye bekle
-        
-        currentLevelIndex++; // Sonraki bölüme geç
-        LoadLevel(currentLevelIndex);
+        yield return new WaitForSeconds(delay); 
+        int nextSceneIndex = SceneManager.GetActiveScene().buildIndex + 1;
+        if (nextSceneIndex < SceneManager.sceneCountInBuildSettings)
+        {
+            SceneManager.LoadScene(nextSceneIndex);
+        }
+        else
+        {
+            SceneManager.LoadScene(0); 
+        }
+    }
+
+    private IEnumerator RestartLevelAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay); 
+        SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 }
