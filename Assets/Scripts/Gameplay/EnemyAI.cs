@@ -54,10 +54,11 @@ public class EnemyAI : MonoBehaviour
         CheckFieldOfView();
         UpdateUI();
         
-        // Animasyonu NavMesh'in hızına göre otomatik oynat
+        // Animasyonu NavMesh'in hızına göre otomatik oynat (Hızı 0 ile 1 arasına sıkıştır)
         if (animator != null)
         {
-            animator.SetFloat("Speed", agent.velocity.magnitude);
+            float normalizedSpeed = agent.velocity.magnitude / agent.speed;
+            animator.SetFloat("Speed", normalizedSpeed);
         }
     }
 
