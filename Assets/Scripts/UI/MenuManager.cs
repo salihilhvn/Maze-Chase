@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 
 public class MenuManager : MonoBehaviour
@@ -17,95 +16,91 @@ public class MenuManager : MonoBehaviour
     [Header("Animasyon Hızı")]
     public float kaymaHizi = 15f;
 
-    private RectTransform currentPanel;
-    private Coroutine panelCoroutine;
-    private Coroutine squareCoroutine;
+    // Her panelin gitmesi gereken hedef X koordinatları
+    private float homeTargetX;
+    private float leaderboardTargetX;
+    private float storeTargetX;
     
-    private Vector3 merkezPos;
+    private RectTransform activeBtn;
+
+    private float merkezX;
     private float ekranGenisligi;
 
     void Start()
     {
-        // Ekranın GERÇEK pixel genişliğini alıyoruz (Anchor/Pivot kaynaklı hataları 0'a indirir)
+        // Ekranın KESİN fiziksel genişliği
         ekranGenisligi = Screen.width;
         
-        // Home panelinin başlangıçtaki dünya pozisyonunu (position) MERKEZ kabul ediyoruz
-        merkezPos = homePanel.position;
-
-        currentPanel = homePanel;
+        // Ekranın KESİN ortasının X koordinatı (Canvas Overlay modunda)
+        merkezX = Screen.width / 2f;
         
-        // Diğer panelleri baştan sağa ve sola fırlatıyoruz (Tamamen World Position)
-        leaderboardPanel.position = merkezPos + new Vector3(-ekranGenisligi, 0, 0);
-        storePanel.position = merkezPos + new Vector3(ekranGenisligi, 0, 0);
+        // Başlangıç hedeflerini ayarla (Home ortada)
+        SetTargets(homePanel);
+        
+        // Panelleri anında yerlerine oturt. (Eğer Unity'de tasarlarken sahnede yanlışlıkla 
+        // kaydırdıysan bile oyun başladığı an tam olması gereken mükemmel yerlerine geçerler)
+        homePanel.position = new Vector3(homeTargetX, homePanel.position.y, homePanel.position.z);
+        leaderboardPanel.position = new Vector3(leaderboardTargetX, leaderboardPanel.position.y, leaderboardPanel.position.z);
+        storePanel.position = new Vector3(storeTargetX, storePanel.position.y, storePanel.position.z);
+        
+        // Karenin başlangıç ayarı
+        activeBtn = homeBtn;
+        activeSquare.position = new Vector3(homeBtn.position.x, activeSquare.position.y, activeSquare.position.z);
+    }
+
+    void Update()
+    {
+        // Tüm panelleri her saniye kendi hedefine doğru yumuşakça kaydır.
+        // Bu sistem sayesinde butonlara art arda hızlıca bassan bile paneller yolda kalmaz, şaşmaz!
+        homePanel.position = Vector3.Lerp(homePanel.position, new Vector3(homeTargetX, homePanel.position.y, homePanel.position.z), Time.deltaTime * kaymaHizi);
+        leaderboardPanel.position = Vector3.Lerp(leaderboardPanel.position, new Vector3(leaderboardTargetX, leaderboardPanel.position.y, leaderboardPanel.position.z), Time.deltaTime * kaymaHizi);
+        storePanel.position = Vector3.Lerp(storePanel.position, new Vector3(storeTargetX, storePanel.position.y, storePanel.position.z), Time.deltaTime * kaymaHizi);
+
+        // Seçili kareyi de aktif butonun üzerine kaydır
+        if (activeBtn != null)
+        {
+            activeSquare.position = Vector3.Lerp(activeSquare.position, new Vector3(activeBtn.position.x, activeSquare.position.y, activeSquare.position.z), Time.deltaTime * kaymaHizi);
+        }
     }
 
     public void LeaderboardaGit()
     {
-        if (currentPanel == leaderboardPanel) return;
-        
-        SlideYap(leaderboardPanel, -ekranGenisligi, ekranGenisligi);
-        KareyiKaydir(leaderboardBtn);
+        SetTargets(leaderboardPanel);
+        activeBtn = leaderboardBtn;
     }
 
     public void HomeaGit()
     {
-        if (currentPanel == homePanel) return;
-
-        float baslangicX = (currentPanel == leaderboardPanel) ? ekranGenisligi : -ekranGenisligi;
-        float cikisX = (currentPanel == leaderboardPanel) ? -ekranGenisligi : ekranGenisligi;
-
-        SlideYap(homePanel, baslangicX, cikisX);
-        KareyiKaydir(homeBtn);
+        SetTargets(homePanel);
+        activeBtn = homeBtn;
     }
 
     public void StoreaGit()
     {
-        if (currentPanel == storePanel) return;
-
-        SlideYap(storePanel, ekranGenisligi, -ekranGenisligi);
-        KareyiKaydir(storeBtn);
+        SetTargets(storePanel);
+        activeBtn = storeBtn;
     }
 
-    private void SlideYap(RectTransform yeniPanel, float girisXOffset, float cikisXOffset)
+    private void SetTargets(RectTransform merkezdekiPanel)
     {
-        if (panelCoroutine != null) StopCoroutine(panelCoroutine);
-        panelCoroutine = StartCoroutine(PanelKaydirma(currentPanel, yeniPanel, girisXOffset, cikisXOffset));
-        currentPanel = yeniPanel;
-    }
-
-    private IEnumerator PanelKaydirma(RectTransform eski, RectTransform yeni, float girisOffset, float cikisOffset)
-    {
-        // Gidecekleri dünya (ekran) pozisyonlarını hesapla
-        Vector3 girisPos = merkezPos + new Vector3(girisOffset, 0, 0);
-        Vector3 cikisPos = merkezPos + new Vector3(cikisOffset, 0, 0);
-        
-        yeni.position = girisPos;
-        
-        // Hedefe varana kadar döngü
-        while (Vector3.Distance(yeni.position, merkezPos) > 1f)
+        // Burası sihrin koptuğu yer. Panellerin sırasını (Leaderboard -> Home -> Store) asla bozmuyoruz.
+        if (merkezdekiPanel == homePanel)
         {
-            eski.position = Vector3.Lerp(eski.position, cikisPos, Time.deltaTime * kaymaHizi);
-            yeni.position = Vector3.Lerp(yeni.position, merkezPos, Time.deltaTime * kaymaHizi);
-            yield return null;
+            homeTargetX = merkezX;
+            leaderboardTargetX = merkezX - ekranGenisligi;
+            storeTargetX = merkezX + ekranGenisligi;
         }
-
-        yeni.position = merkezPos;
-        eski.position = cikisPos;
-    }
-
-    private void KareyiKaydir(RectTransform hedefBtn)
-    {
-        if (squareCoroutine != null) StopCoroutine(squareCoroutine);
-        squareCoroutine = StartCoroutine(KareKaydirma(hedefBtn));
-    }
-
-    private IEnumerator KareKaydirma(RectTransform hedefBtn)
-    {
-        while (Mathf.Abs(activeSquare.position.x - hedefBtn.position.x) > 0.1f)
+        else if (merkezdekiPanel == leaderboardPanel)
         {
-            activeSquare.position = Vector3.Lerp(activeSquare.position, new Vector3(hedefBtn.position.x, activeSquare.position.y, activeSquare.position.z), Time.deltaTime * kaymaHizi);
-            yield return null;
+            leaderboardTargetX = merkezX;
+            homeTargetX = merkezX + ekranGenisligi; // Home sağa kayar
+            storeTargetX = merkezX + (ekranGenisligi * 2); // Store daha da sağa kayar (arkada bekler)
         }
-        activeSquare.position = new Vector3(hedefBtn.position.x, activeSquare.position.y, activeSquare.position.z);
+        else if (merkezdekiPanel == storePanel)
+        {
+            storeTargetX = merkezX;
+            homeTargetX = merkezX - ekranGenisligi; // Home sola kayar
+            leaderboardTargetX = merkezX - (ekranGenisligi * 2); // Leaderboard daha da sola kayar (arkada bekler)
+        }
     }
 }
