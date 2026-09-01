@@ -1,5 +1,5 @@
 using UnityEngine;
-
+using UnityEngine.SceneManagement;
 public class MenuManager : MonoBehaviour
 {
     [Header("Sayfa Panelleri")]
@@ -102,5 +102,11 @@ public class MenuManager : MonoBehaviour
             homeTargetX = merkezX - ekranGenisligi; // Home sola kayar
             leaderboardTargetX = merkezX - (ekranGenisligi * 2); // Leaderboard daha da sola kayar (arkada bekler)
         }
+    }
+
+    public void StartGame()
+    {
+        // "Gameplay" adlı sahneyi yükler
+        SceneManager.LoadScene("Gameplay");
     }
 }
